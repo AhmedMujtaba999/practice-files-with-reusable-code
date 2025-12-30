@@ -13,71 +13,104 @@ class TasksPage extends StatefulWidget {
 }
 
 class _TasksPageState extends State<TasksPage> {
-  DateTime _selectedDate = DateTime.now();
+  DateTime? _filterDate; // null = default (today tasks first)
 
-  // Normalize a DateTime to midnight (so we can compare dates safely)
   DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
   Future<List<TaskItem>> _load() async {
     await AppDb.instance.seedTasksIfEmpty();
-    final all = await AppDb.instance.listTasks();
-
-    // Sort newest first
-    all.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-
-    return all;
+    // listTasks() already sorts today's scheduled tasks first by default
+    return AppDb.instance.listTasks(forDate: _filterDate);
   }
 
   Future<void> _pickDate() async {
     final now = DateTime.now();
+    final initial = _filterDate ?? _dateOnly(now);
+
     final picked = await showDatePicker(
       context: context,
-      initialDate: _selectedDate,
+      initialDate: initial,
       firstDate: DateTime(now.year - 3),
       lastDate: DateTime(now.year + 3),
     );
-
     if (picked == null) return;
 
-    setState(() {
-      _selectedDate = _dateOnly(picked);
-    });
+    setState(() => _filterDate = _dateOnly(picked));
   }
 
-  bool _isSameDay(DateTime a, DateTime b) {
-    return a.year == b.year && a.month == b.month && a.day == b.day;
-  }
+  void _clearFilter() => setState(() => _filterDate = null);
 
   @override
   Widget build(BuildContext context) {
-    final dateLabel = DateFormat('EEE, MMM d, y').format(_selectedDate);
+    final now = DateTime.now();
+    final isTodayMode = _filterDate == null;
+
+    final shownDate = isTodayMode ? _dateOnly(now) : _filterDate!;
+    final line1 = isTodayMode ? "Today" : DateFormat('EEEE').format(shownDate); // Today OR Wednesday
+    final line2 = DateFormat('EEEE, d MMM').format(shownDate); // Wednesday, 31 Dec
 
     return Scaffold(
       body: Column(
         children: [
-          // ✅ Header with calendar icon on the right
-          GradientHeader(
-            title: "Tasks",
-            child: Row(
-              children: [
-                // Selected date indicator (left)
-                Expanded(
-                  child: Text(
-                    "Showing: $dateLabel",
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
+          const GradientHeader(title: "Tasks"),
+
+          // ✅ 2-line date header + calendar actions
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x11000000),
+                    blurRadius: 10,
+                    offset: Offset(0, 6),
+                  )
+                ],
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          line1,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 16,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          line2,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                            color: Colors.grey,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                     ),
-                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-                IconButton(
-                  onPressed: _pickDate,
-                  icon: const Icon(Icons.calendar_month, color: Colors.white),
-                  tooltip: "Select date",
-                ),
-              ],
+                  IconButton(
+                    tooltip: "Pick date",
+                    onPressed: _pickDate,
+                    icon: const Icon(Icons.calendar_month),
+                  ),
+                  if (!isTodayMode)
+                    IconButton(
+                      tooltip: "Back to Today",
+                      onPressed: _clearFilter,
+                      icon: const Icon(Icons.today),
+                    ),
+                ],
+              ),
             ),
           ),
 
@@ -89,24 +122,16 @@ class _TasksPageState extends State<TasksPage> {
                   return const Center(child: CircularProgressIndicator());
                 }
 
-                final all = snap.data!;
-
-                // ✅ Filter tasks for selected date (by createdAt day)
-                final filtered = all
-                    .where((t) => _isSameDay(_dateOnly(t.createdAt), _selectedDate))
-                    .toList();
-
-                if (filtered.isEmpty) {
-                  return EmptyState(text: "No tasks for $dateLabel");
-                }
+                final list = snap.data!;
+                if (list.isEmpty) return const EmptyState(text: "No tasks");
 
                 return RefreshIndicator(
                   onRefresh: () async => setState(() {}),
                   child: ListView.separated(
                     padding: const EdgeInsets.all(16),
-                    itemCount: filtered.length,
+                    itemCount: list.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 12),
-                    itemBuilder: (_, i) => _taskCard(filtered[i]),
+                    itemBuilder: (_, i) => _taskCard(list[i]),
                   ),
                 );
               },
@@ -118,7 +143,8 @@ class _TasksPageState extends State<TasksPage> {
   }
 
   Widget _taskCard(TaskItem t) {
-    final date = DateFormat('M/d/y').format(t.createdAt);
+    final sched = DateFormat('M/d/y').format(t.scheduledAt);
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -142,7 +168,7 @@ class _TasksPageState extends State<TasksPage> {
               const SizedBox(height: 4),
               Text(t.phone, style: const TextStyle(color: Colors.grey)),
               const SizedBox(height: 10),
-              Text("Created $date", style: const TextStyle(color: Colors.grey)),
+              Text("Scheduled $sched", style: const TextStyle(color: Colors.grey)),
             ]),
           ),
           TextButton(
@@ -164,12 +190,7 @@ class _TasksPageState extends State<TasksPage> {
         padding: const EdgeInsets.fromLTRB(16, 14, 16, 18),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Row(children: [
-            Expanded(
-              child: Text(
-                task.title,
-                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
-              ),
-            ),
+            Expanded(child: Text(task.title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18))),
             IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
           ]),
           const SizedBox(height: 8),
@@ -183,7 +204,10 @@ class _TasksPageState extends State<TasksPage> {
                 context: context,
                 builder: (_) => AlertDialog(
                   title: Text(task.title),
-                  content: Text("${task.customerName}\n${task.phone}\n${task.email}\n${task.address}"),
+                  content: Text(
+                    "${task.customerName}\n${task.phone}\n${task.email}\n${task.address}"
+                    "\n\nScheduled: ${DateFormat('EEE, MMM d, y').format(task.scheduledAt)}",
+                  ),
                 ),
               );
             },
