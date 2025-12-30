@@ -46,8 +46,12 @@ class _TasksPageState extends State<TasksPage> {
     final isTodayMode = _filterDate == null;
 
     final shownDate = isTodayMode ? _dateOnly(now) : _filterDate!;
-    final line1 = isTodayMode ? "Today" : DateFormat('EEEE').format(shownDate);
-    final line2 = DateFormat('EEEE, d MMM').format(shownDate);
+    final titleLine = isTodayMode ? "Today" : DateFormat('EEEE').format(shownDate);
+    final dateLine = DateFormat('EEEE, d MMM').format(shownDate);
+
+    // For the badge
+    final dayNumber = DateFormat('d').format(shownDate);
+    final monthShort = DateFormat('MMM').format(shownDate).toUpperCase();
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -55,68 +59,17 @@ class _TasksPageState extends State<TasksPage> {
         children: [
           const GradientHeader(title: "Tasks"),
 
-          // ✅ highlighted header (eye-catching)
+          // ✅ Professional highlighted date header
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [AppColors.primary, AppColors.primary2]),
-                borderRadius: BorderRadius.circular(18),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x22000000),
-                    blurRadius: 14,
-                    offset: Offset(0, 8),
-                  )
-                ],
-              ),
-              child: Row(
-                children: [
-                  // Left: Date text
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          line1,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 18,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          line2,
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 13,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Right: buttons
-                  _roundIcon(
-                    icon: Icons.calendar_month,
-                    tooltip: "Pick date",
-                    onTap: _pickDate,
-                  ),
-                  const SizedBox(width: 10),
-                  if (!isTodayMode)
-                    _roundIcon(
-                      icon: Icons.today,
-                      tooltip: "Back to Today",
-                      onTap: _clearFilter,
-                    ),
-                ],
-              ),
+            child: _dateHeaderCard(
+              titleLine: titleLine,
+              dateLine: dateLine,
+              dayNumber: dayNumber,
+              monthShort: monthShort,
+              isTodayMode: isTodayMode,
+              onPickDate: _pickDate,
+              onBackToToday: _clearFilter,
             ),
           ),
 
@@ -148,25 +101,151 @@ class _TasksPageState extends State<TasksPage> {
     );
   }
 
-  Widget _roundIcon({
+  Widget _dateHeaderCard({
+    required String titleLine,
+    required String dateLine,
+    required String dayNumber,
+    required String monthShort,
+    required bool isTodayMode,
+    required VoidCallback onPickDate,
+    required VoidCallback onBackToToday,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        // ✅ Different & professional (not plain white, not full blue)
+        color: const Color(0xFFF6F7FF), // soft lavender tint
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE7E9FF)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x12000000),
+            blurRadius: 14,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Left accent strip
+          Container(
+            width: 6,
+            height: 82,
+            decoration: BoxDecoration(
+              color: AppColors.primary,
+              borderRadius: BorderRadius.circular(18),
+            ),
+          ),
+          const SizedBox(width: 12),
+
+          // Date badge (big day number)
+          Container(
+            width: 54,
+            height: 54,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFE7E9FF)),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  dayNumber,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  monthShort,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+
+          // Text
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  titleLine,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 16,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  dateLine,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                    color: Colors.grey,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+
+          // Actions (pill buttons)
+          _pillButton(
+            icon: Icons.calendar_month,
+            label: "Calendar",
+            onTap: onPickDate,
+          ),
+          const SizedBox(width: 10),
+          if (!isTodayMode)
+            _pillButton(
+              icon: Icons.today,
+              label: "Today",
+              onTap: onBackToToday,
+            ),
+
+          const SizedBox(width: 12),
+        ],
+      ),
+    );
+  }
+
+  Widget _pillButton({
     required IconData icon,
-    required String tooltip,
+    required String label,
     required VoidCallback onTap,
   }) {
-    return Tooltip(
-      message: tooltip,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.18),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.white.withOpacity(0.25)),
-          ),
-          child: Icon(icon, color: Colors.white),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFE7E9FF)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 18, color: AppColors.primary),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                color: AppColors.primary,
+              ),
+            ),
+          ],
         ),
       ),
     );
