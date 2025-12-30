@@ -4,6 +4,7 @@ import 'storage.dart';
 import 'models.dart';
 import 'widgets.dart';
 import 'create.dart';
+import 'theme.dart';
 
 class TasksPage extends StatefulWidget {
   const TasksPage({super.key});
@@ -19,7 +20,6 @@ class _TasksPageState extends State<TasksPage> {
 
   Future<List<TaskItem>> _load() async {
     await AppDb.instance.seedTasksIfEmpty();
-    // listTasks() already sorts today's scheduled tasks first by default
     return AppDb.instance.listTasks(forDate: _filterDate);
   }
 
@@ -46,32 +46,34 @@ class _TasksPageState extends State<TasksPage> {
     final isTodayMode = _filterDate == null;
 
     final shownDate = isTodayMode ? _dateOnly(now) : _filterDate!;
-    final line1 = isTodayMode ? "Today" : DateFormat('EEEE').format(shownDate); // Today OR Wednesday
-    final line2 = DateFormat('EEEE, d MMM').format(shownDate); // Wednesday, 31 Dec
+    final line1 = isTodayMode ? "Today" : DateFormat('EEEE').format(shownDate);
+    final line2 = DateFormat('EEEE, d MMM').format(shownDate);
 
     return Scaffold(
+      backgroundColor: AppColors.bg,
       body: Column(
         children: [
           const GradientHeader(title: "Tasks"),
 
-          // ✅ 2-line date header + calendar actions
+          // ✅ highlighted header (eye-catching)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
+                gradient: const LinearGradient(colors: [AppColors.primary, AppColors.primary2]),
+                borderRadius: BorderRadius.circular(18),
                 boxShadow: const [
                   BoxShadow(
-                    color: Color(0x11000000),
-                    blurRadius: 10,
-                    offset: Offset(0, 6),
+                    color: Color(0x22000000),
+                    blurRadius: 14,
+                    offset: Offset(0, 8),
                   )
                 ],
               ),
               child: Row(
                 children: [
+                  // Left: Date text
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -80,8 +82,9 @@ class _TasksPageState extends State<TasksPage> {
                         Text(
                           line1,
                           style: const TextStyle(
+                            color: Colors.white,
                             fontWeight: FontWeight.w900,
-                            fontSize: 16,
+                            fontSize: 18,
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -89,25 +92,28 @@ class _TasksPageState extends State<TasksPage> {
                         Text(
                           line2,
                           style: const TextStyle(
+                            color: Colors.white70,
                             fontWeight: FontWeight.w700,
                             fontSize: 13,
-                            color: Colors.grey,
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
                   ),
-                  IconButton(
+
+                  // Right: buttons
+                  _roundIcon(
+                    icon: Icons.calendar_month,
                     tooltip: "Pick date",
-                    onPressed: _pickDate,
-                    icon: const Icon(Icons.calendar_month),
+                    onTap: _pickDate,
                   ),
+                  const SizedBox(width: 10),
                   if (!isTodayMode)
-                    IconButton(
+                    _roundIcon(
+                      icon: Icons.today,
                       tooltip: "Back to Today",
-                      onPressed: _clearFilter,
-                      icon: const Icon(Icons.today),
+                      onTap: _clearFilter,
                     ),
                 ],
               ),
@@ -138,6 +144,30 @@ class _TasksPageState extends State<TasksPage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _roundIcon({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onTap,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.18),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.white.withOpacity(0.25)),
+          ),
+          child: Icon(icon, color: Colors.white),
+        ),
       ),
     );
   }
